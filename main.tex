@@ -1,14 +1,72 @@
-\documentclass{article}
-\usepackage[utf8]{inputenc}
-
-\title{2020-02-14-chep2019-proceedings}
-\author{Jim Pivarski}
-\date{January 2020}
+\documentclass{webofc}
+\usepackage[varg]{txfonts}
 
 \begin{document}
+\title{Insert your title here}
+
+\author{\firstname{First author} \lastname{First author}\inst{1,3}\fnsep\thanks{\email{Mail address for first author}} \and
+        \firstname{Second author} \lastname{Second author}\inst{2}\fnsep\thanks{\email{Mail address for second author if necessary}} \and
+        \firstname{Third author} \lastname{Third author}\inst{3}\fnsep\thanks{\email{Mail address for last author if necessary}}
+}
+
+\institute{Insert the first address here 
+\and
+           the second here 
+\and
+           Last address
+          }
+
+\abstract{%
+  Insert your english abstract here.
+}
 
 \maketitle
 
 \section{Introduction}
+\label{intro}
+Your text comes here. Separate text sections with
+
+\section{Section title}
+\label{sec-1}
+For bibliography use \cite{RefJ}
+
+\subsection{Subsection title}
+\label{sec-2}
+Don't forget to give each section, subsection, subsubsection, and
+paragraph a unique label (see Sect.~\ref{sec-1}).
+
+For tables use syntax in table~\ref{tab-1}.
+\begin{table}
+\centering
+\caption{Please write your table caption here}
+\label{tab-1}
+
+\begin{tabular}{lll}
+\hline
+first & second & third  \\\hline
+number & number & number \\
+number & number & number \\\hline
+\end{tabular}
+
+\vspace*{5cm}
+\end{table}
+
+% BibTeX or Biber users please use (the style is already called in the class, ensure that the "woc.bst" style is in your local directory)
+% \bibliography{name or your bibliography database}
+%
+% Non-BibTeX users please use
+%
+\begin{thebibliography}{}
+%
+% and use \bibitem to create references.
+%
+\bibitem{RefJ}
+% Format for Journal Reference
+Journal Author, Journal \textbf{Volume}, page numbers (year)
+% Format for books
+\bibitem{RefB}
+Book Author, \textit{Book title} (Publisher, place, year) page numbers
+% etc
+\end{thebibliography}
 
 \end{document}
