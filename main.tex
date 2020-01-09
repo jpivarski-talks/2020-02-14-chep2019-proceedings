@@ -42,6 +42,23 @@ All of these issues argue for a redesign of the library, keeping the core concep
 
 \section{Architecture}
 
+The principle of Awkward Array is that an array of any data structure can be constructed from a composition of nodes that each provide one feature. The prototypical example is a jagged array, which represents an array of unequal-length subarrays with an array of integer \mintinline{c++}{offsets} and a contiguous array of \mintinline{c++}{content}. If the \mintinline{c++}{content} is one-dimensional, the jagged array is two-dimensional, where the second dimension has unequal lengths. To make a three-dimensional jagged array (unequal lengths in both inner dimensions), the \mintinline{c++}{content} of the outer jagged array is the inner jagged array. With an appropriate set of generators, any data structure can be assembled.
+
+In the original Awkward Array library, the nodes were Python classes with special methods that NumPy recognizes to pass array-at-a-time operations through the data structure. Although that was an easy way to get started and respond rapidly to users' needs, some tasks are more difficult to express purely in NumPy calls than others. For complete generality, Awkward 1.0 nodes are implemented as C++ classes, operated upon by specialized code.
+
+We can satisfy users' needs for imperative access by adding Numba extensions to Awkward Array, but this would amount to rewriting the entire library, once in precompiled code (C++), and once in JIT-compiled code (Numba). To ease maintainance burdens, we have separated the Awkward 1.0 operations---specialized loops that perform array manipulations---from the data structures, ownership, and allocation. Operations only need to be written once, and can be called from the two versions of the ownership code, in C++ and Numba.
+
+In total, there are four layers:
+
+\begin{enumerate}
+\item High-level user interface in Python, which presents a single \mintinline{python}{awkward.Array} class.
+\item Nested data structure nodes: C++ classes wrapped in Python with pybind11.
+\item Two versions of the ownership layer, in C++ and Numba.
+\item Awkward Array operations in specialized, precompiled code with a pure C interface (can be called from C++ and Numba.
+\end{enumerate}
+
+\noindent With one exception to be discussed in Section~\ref{lab:fillablearray}, all loops that scale with the number of entries in arrays are in layer~4. All allocation and memory ownership is in layer~3, independently implemented for C++ and Numba. This separation mimics NumPy itself, which uses Python reference counting to manage ownership and precompiled code for all operations that scale with the size of the arrays. Like NumPy/CuPy and array libraries for machine learning, we could add GPU support by reimplementing the layer~4 operations for GPU targets.
+
 \subsection{High-level Python layer}
 
 \subsection{C++ layer}
@@ -51,6 +68,7 @@ All of these issues argue for a redesign of the library, keeping the core concep
 \subsection{Kernels layer}
 
 \section{Record-oriented $\to$ columnar}
+\label{lab:fillablearray}
 
 % \subsection{Deeply nested data from ROOT}
 
