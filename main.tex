@@ -1,5 +1,7 @@
 \documentclass{webofc}
 \usepackage[varg]{txfonts}
+\usepackage{graphicx}
+\usepackage{minted}
 
 % 6 pages excluding references!
 
@@ -20,21 +22,44 @@
 \maketitle
 
 \section{Introduction}
-\label{intro}
-Your text comes here. Separate text sections with
 
-\section{Section title}
-\label{sec-1}
-For bibliography use \cite{RefJ}
+\section{Architecture}
 
-% BibTeX or Biber users please use (the style is already called in the class, ensure that the "woc.bst" style is in your local directory)
-% \bibliography{name or your bibliography database}
-%
-% Non-BibTeX users please use
-\begin{thebibliography}{}
-% and use \bibitem to create references.
-\bibitem{RefJ}
-Journal Author, Journal \textbf{Volume}, page numbers (year)
-\end{thebibliography}
+\subsection{High-level Python layer}
+
+\subsection{C++ layer}
+
+\subsection{Numba layer}
+
+\subsection{Kernels layer}
+
+\section{Record-oriented $\to$ columnar}
+
+\subsection{Deeply nested data from ROOT}
+
+\section{Status}
+
+\section{Conclusion}
+
+
+
+
+%% \section{Introduction}
+%% \label{intro}
+%% Your text comes here. Separate text sections with
+
+%% \section{Section title}
+%% \label{sec-1}
+%% For bibliography use \cite{RefJ}
+
+%% % BibTeX or Biber users please use (the style is already called in the class, ensure that the "woc.bst" style is in your local directory)
+%% % \bibliography{name or your bibliography database}
+%% %
+%% % Non-BibTeX users please use
+%% \begin{thebibliography}{}
+%% % and use \bibitem to create references.
+%% \bibitem{RefJ}
+%% Journal Author, Journal \textbf{Volume}, page numbers (year)
+%% \end{thebibliography}
 
 \end{document}
