@@ -61,6 +61,47 @@ In total, there are four layers:
 
 \subsection{High-level Python layer}
 
+Awkward 1.0 appears to data analysts as a 
+
+\begin{minted}{python}
+>>> import awkward1 as ak
+>>> array = ak.Array([[{"x": 1, "y": [1.1]}, {"x": 2, "y": [2.0, 0.2]}],
+...                   [], [{"x": 3, "y": [3.0, 0.3, 3.3]}]])
+>>> array
+<Array [[{x: 1, y: [1.1]}, ... 3.3]}]] type='3 * var * {"x": int64,...'>
+\end{minted}
+
+\begin{minted}{python}
+>>> array.layout
+<ListOffsetArray64>
+  <offsets><Index64 i="[0 2 2 3]" offset="0"/></offsets>
+  <content><RecordArray>
+    <field index="0" key="x">
+      <NumpyArray format="l" shape="3" data="1 2 3"/>
+    </field>
+    <field index="1" key="y">
+      <ListOffsetArray64>
+        <offsets><Index64 i="[0 1 3 6]" offset="0"/></offsets>
+        <content>
+          <NumpyArray format="d" shape="6" data="1.1 2 0.2 3 0.3 3.3"/>
+        </content>
+      </ListOffsetArray64>
+    </field>
+  </RecordArray></content>
+</ListOffsetArray64>
+\end{minted}
+
+\begin{minted}{python}
+>>> ak.typeof(array)
+3 * var * {"x": int64, "y": var * float64}
+\end{minted}
+
+
+\begin{minted}{python}
+>>> array["y", [0, 2], :, 1:]
+<Array [[[], [0.2]], [[0.3, 3.3]]] type='2 * var * var * float64'>
+\end{minted}
+
 \subsection{C++ layer}
 
 \subsection{Numba layer}
