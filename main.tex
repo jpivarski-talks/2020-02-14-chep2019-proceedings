@@ -46,7 +46,7 @@ The principle of Awkward Array is that an array of any data structure can be con
 
 In the original Awkward Array library, the nodes were Python classes with special methods that NumPy recognizes to pass array-at-a-time operations through the data structure. Although that was an easy way to get started and respond rapidly to users' needs, some tasks are more difficult to express purely in NumPy calls than others. For complete generality, Awkward 1.0 nodes are implemented as C++ classes, operated upon by specialized code.
 
-We can satisfy users' needs for imperative access by adding Numba extensions to Awkward Array, but this would amount to rewriting the entire library, once in precompiled code (C++), and once in JIT-compiled code (Numba). To ease maintainance burdens, we have separated the Awkward 1.0 operations---specialized loops that perform array manipulations---from the persistent data structures themselves. Operations only need to be written once, and can be called from the two versions of the data structures, one in C++ and the other in Numba.
+We can satisfy users' needs for imperative access by adding Numba [ref] extensions to Awkward Array, but this would amount to rewriting the entire library, once in precompiled code (C++), and once in JIT-compiled code (Numba). To ease maintainance burdens, we have separated the Awkward 1.0 operations---specialized loops that perform array manipulations---from the persistent data structures themselves. Operations only need to be written once, and can be called from the two versions of the data structures, one in C++ and the other in Numba.
 
 In total, there are four layers:
 
@@ -127,7 +127,7 @@ This feature is implemented more robustly in Awkward 1.0 by only applying the in
 
 \subsection{C++ layer}
 
-The structural nodes underlying the above example are all C++ classes, wrapped as Python classes using pybind11 [ref]. In this case, the array is constructed from a \mintinline{python}{ListOffsetArray64} containing a \mintinline{python}{RecordArray} with fields \mintinline{python}{"x"} and \mintinline{python}{"y"}, which are themselves arrays.
+The structural nodes underlying the above example are all C++ classes, wrapped in Python using pybind11 [ref]. In our example, the array is constructed from a \mintinline{python}{ListOffsetArray64} containing a \mintinline{python}{RecordArray} with fields \mintinline{python}{"x"} and \mintinline{python}{"y"}, which are themselves arrays:
 
 \begin{minted}{python}
 >>> array.layout
@@ -149,11 +149,18 @@ The structural nodes underlying the above example are all C++ classes, wrapped a
 </ListOffsetArray64>
 \end{minted}
 
-\noindent Each node is a \mintinline{c++}{std::shared_ptr<Content>}, where \mintinline{c++}{Content} is the superclass of all node classes like \mintinline{c++}{ListOffsetArray64}, \mintinline{c++}{RecordArray}, and \mintinline{c++}{NumpyArray}. Operations on arrays are virtual methods, implemented for each class. Compile-time templates are used to specialize integer types (e.g.\ \mintinline{c++}{ListOffsetArray32} versus \mintinline{c++}{ListOffsetArray64}), but all types must be fully instantiated and dynamically combinable for use with Python.
+\noindent Each node is a \mintinline{c++}{std::shared_ptr<Content>}, where \mintinline{c++}{Content} is the superclass of all node classes like \mintinline{c++}{ListOffsetArray64}, \mintinline{c++}{RecordArray}, and \mintinline{c++}{NumpyArray}. Operations on arrays are virtual methods, implemented for each class. Compile-time templates are used to specialize integer types (e.g.\ \mintinline{c++}{ListOffsetArray32} versus \mintinline{c++}{ListOffsetArray64}), but not for building structures: all types must be fully instantiated and dynamically combinable for use with Python.
 
-For a dataset with $n$ nodes (dozens to hundreds) and $N$ elements in the array (may be billions), the number of reference count checks and virtual method lookups scale with $n$ and not $N$. Thus, they are not a bottleneck. The only operations on arrays that scale with $N$ are executed in the kernels layer---all optimization efforts are focused on that layer, not C++.
+This might, at first, seem inefficient, but an operation on an Awkward Array only needs to look up shared pointer tables and virtual methods one or several times for each structure node, which number in the dozens or hundreds at most, not for each element in the array, which can number in the billions. Thus, optimization efforts should focus on the kernels layer, in which loops over billion-element arrays are implemented, not the C++ layer.
 
 \subsection{Numba layer}
+
+Numba has an extension mechanism, allowing library developers to inform the Numba compiler of new data types. We 
+
+
+
+
+
 
 \subsection{Kernels layer}
 
