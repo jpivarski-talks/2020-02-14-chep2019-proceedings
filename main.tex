@@ -127,7 +127,7 @@ This feature is implemented more robustly in Awkward 1.0 by only applying the in
 
 \subsection{C++ layer}
 
-The structural nodes underlying the above example are all C++ classes, wrapped as Python classes with pybind11 [ref].
+The structural nodes underlying the above example are all C++ classes, wrapped as Python classes using pybind11 [ref]. In this case, the array is constructed from a \mintinline{python}{ListOffsetArray64} containing a \mintinline{python}{RecordArray} with fields \mintinline{python}{"x"} and \mintinline{python}{"y"}, which are themselves arrays.
 
 \begin{minted}{python}
 >>> array.layout
@@ -148,6 +148,10 @@ The structural nodes underlying the above example are all C++ classes, wrapped a
   </RecordArray></content>
 </ListOffsetArray64>
 \end{minted}
+
+\noindent Each node is a \mintinline{c++}{std::shared_ptr<Content>}, where \mintinline{c++}{Content} is the superclass of all node classes like \mintinline{c++}{ListOffsetArray64}, \mintinline{c++}{RecordArray}, and \mintinline{c++}{NumpyArray}. Operations on arrays are virtual methods, implemented for each class. Compile-time templates are used to specialize integer types (e.g.\ \mintinline{c++}{ListOffsetArray32} versus \mintinline{c++}{ListOffsetArray64}), but all types must be fully instantiated and dynamically combinable for use with Python.
+
+For a dataset with $n$ nodes (dozens to hundreds) and $N$ elements in the array (may be billions), the number of reference count checks and virtual method lookups scale with $n$, while the 
 
 
 
