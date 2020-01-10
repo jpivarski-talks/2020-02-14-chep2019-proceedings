@@ -42,7 +42,7 @@ All of these issues argue for a redesign of the library, keeping the core concep
 
 \section{Architecture}
 
-The principle of Awkward Array is that an array of any data structure can be constructed from a composition of nodes that each provide one feature. The prototypical example is a jagged array, which represents an array of unequal-length subarrays with an array of integer \mintinline{c++}{offsets} and a contiguous array of \mintinline{c++}{content}. If the \mintinline{c++}{content} is one-dimensional, the jagged array is two-dimensional, where the second dimension has unequal lengths. To make a three-dimensional jagged array (unequal lengths in both inner dimensions), the \mintinline{c++}{content} of the outer jagged array is the inner jagged array. With an appropriate set of generators, any data structure can be assembled.
+The principle of Awkward Array is that an array of any data structure can be constructed from a composition of nodes that each provide one feature. The prototypical example is a jagged array, which represents an array of unequal-length subarrays with an array of integer \mintinline{c++}{offsets} and a contiguous array of \mintinline{c++}{content}. If the \mintinline{c++}{content} is one-dimensional, the jagged array is two-dimensional, where the second dimension has unequal lengths. To make a three-dimensional jagged array (unequal lengths in both inner dimensions), one jagged array node can be used as the \mintinline{c++}{content} for another. With an appropriate set of generators, any data structure can be assembled.
 
 In the original Awkward Array library, the nodes were Python classes with special methods that NumPy recognizes to pass array-at-a-time operations through the data structure. Although that was an easy way to get started and respond rapidly to users' needs, some tasks are more difficult to express purely in NumPy calls than others. For complete generality, Awkward 1.0 nodes are implemented as C++ classes, operated upon by specialized code.
 
@@ -53,8 +53,8 @@ In total, there are four layers:
 \begin{enumerate}
 \item High-level user interface in Python, which presents a single \mintinline{python}{awkward.Array} class.
 \item Nested data structure nodes: C++ classes wrapped in Python with pybind11.
-\item Two versions of the data structures, in C++ and Numba.
-\item Awkward Array operations in specialized, precompiled code with a pure C interface (can be called from C++ and Numba.
+\item Two versions of the data structures, one in C++ and one in Numba.
+\item Awkward Array operations in specialized, precompiled code with a pure C interface (can be called from C++ and Numba).
 \end{enumerate}
 
 \noindent With one exception to be discussed in Section~\ref{lab:fillablearray}, all loops that scale with the number of entries in arrays are in layer~4. All allocation and memory ownership is in layer~3, independently implemented for C++ and Numba. This separation mimics NumPy itself, which uses Python reference counting to manage ownership and precompiled code for all operations that scale with the size of the arrays. Like NumPy/CuPy and array libraries for machine learning, we could add GPU support by reimplementing the layer~4 operations for GPU targets.
@@ -78,11 +78,16 @@ From a data analyst's perspective, Awkward Array is a library with one important
 3 * var * {"x": int64, "y": var * float64}
 \end{minted}
 
-\noindent These arrays can be sliced like NumPy arrays, though slices include a mix of integers, ranges, arrays of booleans and integers, jagged arrays of booleans and integers, etc. They can also be operated on with NumPy's array-at-a-time functions.
+\noindent These arrays can be sliced like NumPy arrays, with a mix of integers, slices, arrays of booleans and integers, jagged arrays of booleans and integers, etc.
 
 \begin{minted}{python}
 >>> array["y", [0, 2], :, 1:]
 <Array [[[], [0.2]], [[0.3, 3.3]]] type='2 * var * var * float64'>
+\end{minted}
+
+\noindent They can also be operated on with NumPy's array-at-a-time functions.
+
+\begin{minted}{python}
 >>> import numpy as np
 >>> np.sin(array)
 <Array [[{x: 0.841, ... -0.158]}]] type='3 * var * {"x": int64,...'>
@@ -110,25 +115,25 @@ The nodes that define the structure of an array, which were the basic types of t
 %% </ListOffsetArray64>
 %% \end{minted}
 
-A surprisingly important use-case for the original Awkward Array was the ability to add domain-specific code to the data structures. For example, records with fields named \mintinline{python}{"pt"}, \mintinline{python}{"eta"}, \mintinline{python}{"phi"}, and \mintinline{python}{"mass"} were wrapped as \mintinline{python}{LorentzVector} objects, and arrays of these as \mintinline{python}{LorentzVector} arrays with array-at-a-time vector addition, boosting, $\Delta R$ calculations, etc. However, it was implemented using Python class inheritance, which was fragile because new Python objects for the same data are frequently created, and it was easy to lose the necessary superclasses in these transformations.
+A surprisingly important use-case for the original Awkward Array was the ability to add domain-specific code to the data structures. For example, records with fields named \mintinline{python}{"pt"}, \mintinline{python}{"eta"}, \mintinline{python}{"phi"}, and \mintinline{python}{"mass"} were wrapped as \mintinline{python}{LorentzVector} objects, with operations on arrays of \mintinline{python}{LorentzVectors} (addition, boosting, $\Delta R$ calculations, etc.) provided as methods. However, this feature was implemented using Python class inheritance, which was fragile because new Python objects for the same data are frequently created, and it was easy to lose the necessary superclasses in these transformations.
 
-This feature is implemented more robustly in Awkward 1.0 by only applying the interpretation when creating the high-level wrapper, and keeping track of how to interpret each \mintinline{python}{layout} node with \mintinline{python}{parameters} that pass through C++ and Numba.
+This feature is implemented more robustly in Awkward 1.0 by only applying the interpretation when creating the high-level wrapper, and keeping track of how to interpret each \mintinline{python}{layout} node with \mintinline{python}{parameters} that pass through C++ and Numba. For example,
 
 \begin{minted}{python}
 >>> class Point(awkward1.Record):
 ...   def __repr__(self):
-...     return "<{} {}>".format(self["x"], self["y"])
-... 
->>> # Add the Point class to Awkward'd name -> class namespace.
+...     return "Point({} {})".format(self["x"], self["y"])
+\end{minted}
+
+\begin{minted}{python}
 >>> ak.namespace["Point"] = Point
->>> # Set parameters for show records as Point objects with type "P".
 >>> array.layout.content.setparameter("__class__", "Point")
 >>> array.layout.content.setparameter("__str__", "P")
 >>> array
-<Array [[<1 [1.1]>, ... <3 [3, 0.3, 3.3]>]] type='3 * var * P'>
+<Array [[Point(1 [1.1]), ... Point(3 [3, 0.3, 3.3])]] type='3 * var * P'>
 \end{minted}
 
-\noindent Incidentally, string data types are implemented this way: there is no string array type, but lists of 8-bit integers that should be interpreted as strings are labeled as such, and therefore presented and operated upon as such.
+\noindent Incidentally, strings are implemented this way, too: there is no string array type, but lists of 8-bit integers that should be interpreted as strings are labeled as such, and therefore presented and operated upon as such.
 
 \begin{minted}{python}
 >>> array = ak.Array(["one", "two", "three"])
