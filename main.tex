@@ -31,7 +31,7 @@ The Awkward Array library [2018 ROOT workshop ref] was created to provide these 
 
 \begin{figure}
 \begin{center}
-\includegraphics[width=0.65\linewidth]{pip-timeline.pdf}
+\includegraphics[width=0.75\linewidth]{pip-timeline.pdf}
 \end{center}
 \caption{Number of pip-installations per day (smoothed by a 60-day moving average) for popular data analysis libraries (numpy, scipy, pandas, matplotlib) and particle physics libraries (root-numpy, iminuit, rootpy, uproot, awkward, coffea) on operating systems not used for batch jobs (MacOS and Windows). \label{fig:pip-timeline}}
 \end{figure}
@@ -174,12 +174,20 @@ Transformations of Awkward Arrays to and from ROOT and Arrow are either bulk arr
 
 Nevertheless, such a function, named \mintinline{python}{fromiter} in the original Awkward Array library, had many important use-cases. We have therefore moved the \mintinline{python}{fromiter} implementation from Python into C++ and observe a 10--20$\times$ speed-up for typical data structures. Any record-oriented $\to$ columnar transformation of data whose type is not known at compile-time must include virtual method indirection, so further optimization can only be implemented on a case-by-case basis. Since virtual methods are involved, this is the exception to the rule that all operations that scale with the size of the dataset must be implemented in kernel functions.
 
+The record-oriented $\to$ columnar algorithm discovers the data's type dynamically. For instance, if a particular field has always been filled with integers, the first floating-point value invokes a conversion of the previous integer data into floating-point, then integers and floating-point values fill the same array henceforth. In the same example, filling the same field with a string invokes a replacement of the floating-point array with a tagged union of floating-point and strings.
 
+Awkward 1.0 provides three interfaces to this algorithm: (a)~Python objects $\to$ Awkward Arrays, like the old \mintinline{python}{fromiter}, (b)~JSON data $\to$ Awkward Arrays using the RapidJSON library, SAX interface, and (c)~a builder pattern in which the user can fill individual values via method calls. The latter is the most powerful interface, and it is provided in Python, C++, and Numba. In C++, it may lead to Awkward interfaces for established C++ projects, and in Numba, it provides a convenient way for physicists to build complex data structures.
 
+\subsection{Deeply nested data from ROOT}
 
-% \subsection{Deeply nested data from ROOT}
+\begin{figure}
+\begin{center}
+\includegraphics[width=0.75\linewidth]{read_ttree.pdf}
+\end{center}
+\caption{HERE \label{fig:read_ttree}}
+\end{figure}
 
-\section{Status}
+% \section{Status}
 
 \section{Conclusion}
 
