@@ -31,7 +31,7 @@ The Awkward Array library [2018 ROOT workshop ref] was created to provide these 
 
 \begin{figure}
 \begin{center}
-\includegraphics[width=0.7\linewidth]{pip-timeline.pdf}
+\includegraphics[width=0.65\linewidth]{pip-timeline.pdf}
 \end{center}
 \caption{Number of pip-installations per day (smoothed by a 60-day moving average) for popular data analysis libraries (numpy, scipy, pandas, matplotlib) and particle physics libraries (root-numpy, iminuit, rootpy, uproot, awkward, coffea) on operating systems not used for batch jobs (MacOS and Windows). \label{fig:pip-timeline}}
 \end{figure}
@@ -54,10 +54,10 @@ In total, there are four layers:
 \item High-level user interface in Python, which presents a single \mintinline{python}{awkward.Array} class.
 \item Nested data structure nodes: C++ classes wrapped in Python with pybind11.
 \item Two versions of the data structures, one in C++ and one in Numba.
-\item Awkward Array operations in specialized, precompiled code with a pure C interface (can be called from C++ and Numba).
+\item Awkward Array operations in specialized, precompiled code with a pure C interface (can be called from C++ and Numba), called ``kernel functions.''
 \end{enumerate}
 
-\noindent With one exception to be discussed in Section~\ref{lab:fillablearray}, all loops that scale with the number of entries in arrays are in layer~4. All allocation and memory ownership is in layer~3, independently implemented for C++ and Numba. This separation mimics NumPy itself, which uses Python reference counting to manage ownership and precompiled code for all operations that scale with the size of the arrays. Like NumPy/CuPy and array libraries for machine learning, we could add GPU support by reimplementing the layer~4 operations for GPU targets.
+\noindent With one exception to be discussed in Section~\ref{lab:fillablearray}, all loops that scale with the number of entries in arrays are in the kernel functions. All allocation and memory ownership is in the C++ and Numba layer. This separation mimics NumPy itself, which uses Python reference counting to manage ownership and precompiled code for all operations that scale with the size of the arrays. Like NumPy/CuPy and array libraries for machine learning, we could add GPU support by reimplementing the kernel functions for GPU targets.
 
 \subsection{High-level Python layer}
 
@@ -151,21 +151,31 @@ The structural nodes underlying the above example are all C++ classes, wrapped i
 
 \noindent Each node is a \mintinline{c++}{std::shared_ptr<Content>}, where \mintinline{c++}{Content} is the superclass of all node classes like \mintinline{c++}{ListOffsetArray64}, \mintinline{c++}{RecordArray}, and \mintinline{c++}{NumpyArray}. Operations on arrays are virtual methods, implemented for each class. Compile-time templates are used to specialize integer types (e.g.\ \mintinline{c++}{ListOffsetArray32} versus \mintinline{c++}{ListOffsetArray64}), but not for building structures: all types must be fully instantiated and dynamically combinable for use with Python.
 
-This might, at first, seem inefficient, but an operation on an Awkward Array only needs to look up shared pointer tables and virtual methods one or several times for each structure node, which number in the dozens or hundreds at most, not for each element in the array, which can number in the billions. Thus, optimization efforts should focus on the kernels layer, in which loops over billion-element arrays are implemented, not the C++ layer.
+This might, at first, seem inefficient, but an operation on an Awkward Array only needs to look up shared pointer tables and virtual methods one or several times for each structure node, which number in the dozens or hundreds at most, not for each element in the array, which can number in the billions. Thus, optimization efforts should focus on the kernel functions, in which loops over billion-element arrays are implemented, not the C++ layer.
 
 \subsection{Numba layer}
 
-Numba has an extension mechanism, allowing library developers to inform the Numba compiler of new data types. We 
+Numba is an opt-in JIT-compiler for a subset of Python, extensively covering NumPy arrays and their operations. Since Numba-compiled code is familiar, imperative Python, users can debug algorithms without compilation and only JIT-compile those functions when they are ready to scale up to large datasets.
 
+Numba has an extension mechanism that allows third-party libraries to inform the Numba compiler of new data types. Awkward 1.0 uses this extension mechanism to allow Awkward Arrays and their operations in Numba-compiled functions. This is a second implementation of the node data structures and their memory-ownership, but Awkward operations are implemented in kernel functions that C++ and Numba both call.
 
+\subsection{Kernel functions layer}
 
+All operations that transform arrays are implemented in a suite of kernel functions, which are written in C++ with unmangled function names an arguments: exported as \mintinline{c++}{extern "C"}. The interface to these functions is limited to the C feature set, which excludes class types, dispatch by argument types, and templates. Although this is inconvenient, it makes the same suite of functions accessible to C++ and Numba, thereby avoiding duplication.
 
+Apart from template specialization on some argument types, the kernel functions resemble pure C functions because they consist entirely of \mintinline{c++}{for} loops that fill preallocated arrays (allocated and owned by C++ or Numba). Our use of the word ``kernel'' derives from the fact that this separation between bookkeeping in C++ and fast math in simple, C-like code resembles the separation of CPU-bound and GPU-bound code in GPU applications. Thus, the library is already organized in a GPU-friendly way; all that remains is to provide GPU-native implementations of each kernel function.
 
-
-\subsection{Kernels layer}
+All foreseeable optimization effort will be focused on the kernel functions, rather than the bookkeeping and interface code in C++, Numba, and Python, with one exception: record-oriented $\to$ columnar data transformations discussed in the next section.
 
 \section{Record-oriented $\to$ columnar}
 \label{lab:fillablearray}
+
+Transformations of Awkward Arrays to and from ROOT and Arrow are either bulk array copies, without manipulating individual elements, or zero-copy data casting. Record-oriented data, such as Python objects or JSON, require significant processing to transform into any columnar format.
+
+Nevertheless, such a function, named \mintinline{python}{fromiter} in the original Awkward Array library, had many important use-cases. We have therefore moved the \mintinline{python}{fromiter} implementation from Python into C++ and observe a 10--20$\times$ speed-up for typical data structures. Any record-oriented $\to$ columnar transformation of data whose type is not known at compile-time must include virtual method indirection, so further optimization can only be implemented on a case-by-case basis. Since virtual methods are involved, this is the exception to the rule that all operations that scale with the size of the dataset must be implemented in kernel functions.
+
+
+
 
 % \subsection{Deeply nested data from ROOT}
 
