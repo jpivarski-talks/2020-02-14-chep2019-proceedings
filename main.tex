@@ -31,7 +31,7 @@ The Awkward Array library [2018 ROOT workshop ref] was created to provide these 
 
 \begin{figure}
 \begin{center}
-\includegraphics[width=0.75\linewidth]{pip-timeline.pdf}
+\includegraphics[width=0.7\linewidth]{pip-timeline.pdf}
 \end{center}
 \caption{Number of pip-installations per day (smoothed by a 60-day moving average) for popular data analysis libraries (numpy, scipy, pandas, matplotlib) and particle physics libraries (root-numpy, iminuit, rootpy, uproot, awkward, coffea) on operating systems not used for batch jobs (MacOS and Windows). \label{fig:pip-timeline}}
 \end{figure}
@@ -61,48 +61,88 @@ In total, there are four layers:
 
 \subsection{High-level Python layer}
 
-Awkward 1.0 appears to data analysts as a 
+From a data analyst's perspective, Awkward Array is a library with one important data type, \mintinline{python}{awkward.Array}, and a suite of functions operating on that type, \mintinline{python}{awkward.*}.
 
 \begin{minted}{python}
->>> import awkward1 as ak
+>>> import awkward as ak
 >>> array = ak.Array([[{"x": 1, "y": [1.1]}, {"x": 2, "y": [2.0, 0.2]}],
 ...                   [], [{"x": 3, "y": [3.0, 0.3, 3.3]}]])
 >>> array
 <Array [[{x: 1, y: [1.1]}, ... 3.3]}]] type='3 * var * {"x": int64,...'>
 \end{minted}
 
-\begin{minted}{python}
->>> array.layout
-<ListOffsetArray64>
-  <offsets><Index64 i="[0 2 2 3]" offset="0"/></offsets>
-  <content><RecordArray>
-    <field index="0" key="x">
-      <NumpyArray format="l" shape="3" data="1 2 3"/>
-    </field>
-    <field index="1" key="y">
-      <ListOffsetArray64>
-        <offsets><Index64 i="[0 1 3 6]" offset="0"/></offsets>
-        <content>
-          <NumpyArray format="d" shape="6" data="1.1 2 0.2 3 0.3 3.3"/>
-        </content>
-      </ListOffsetArray64>
-    </field>
-  </RecordArray></content>
-</ListOffsetArray64>
-\end{minted}
+\noindent Much like NumPy's \mintinline{python}{dtype}, the actual type of the array is a Python value (expressed in DataShape [ref] notation).
 
 \begin{minted}{python}
 >>> ak.typeof(array)
 3 * var * {"x": int64, "y": var * float64}
 \end{minted}
 
+\noindent These arrays can be sliced like NumPy arrays, though slices include a mix of integers, ranges, arrays of booleans and integers, jagged arrays of booleans and integers, etc. They can also be operated on with NumPy's array-at-a-time functions.
 
 \begin{minted}{python}
 >>> array["y", [0, 2], :, 1:]
 <Array [[[], [0.2]], [[0.3, 3.3]]] type='2 * var * var * float64'>
+>>> import numpy as np
+>>> np.sin(array)
+<Array [[{x: 0.841, ... -0.158]}]] type='3 * var * {"x": int64,...'>
+\end{minted}
+
+The nodes that define the structure of an array, which were the basic types of the original Awkward Array library, are accessible through a \mintinline{python}{layout} property, but most physicists won't need to access this layer.
+
+%% \begin{minted}{python}
+%% >>> array.layout
+%% <ListOffsetArray64>
+%%   <offsets><Index64 i="[0 2 2 3]" offset="0"/></offsets>
+%%   <content><RecordArray>
+%%     <field index="0" key="x">
+%%       <NumpyArray format="l" shape="3" data="1 2 3"/>
+%%     </field>
+%%     <field index="1" key="y">
+%%       <ListOffsetArray64>
+%%         <offsets><Index64 i="[0 1 3 6]" offset="0"/></offsets>
+%%         <content>
+%%           <NumpyArray format="d" shape="6" data="1.1 2 0.2 3 0.3 3.3"/>
+%%         </content>
+%%       </ListOffsetArray64>
+%%     </field>
+%%   </RecordArray></content>
+%% </ListOffsetArray64>
+%% \end{minted}
+
+A surprisingly important use-case for the original Awkward Array was the ability to add domain-specific code to the data structures. For example, records with fields named \mintinline{python}{"pt"}, \mintinline{python}{"eta"}, \mintinline{python}{"phi"}, and \mintinline{python}{"mass"} were wrapped as \mintinline{python}{LorentzVector} objects, and arrays of these as \mintinline{python}{LorentzVector} arrays with array-at-a-time vector addition, boosting, $\Delta R$ calculations, etc. However, it was implemented using Python class inheritance, which was fragile because new Python objects for the same data are frequently created, and it was easy to lose the necessary superclasses in these transformations.
+
+This feature is implemented more robustly in Awkward 1.0 by only applying the interpretation when creating the high-level wrapper, and keeping track of how to interpret each \mintinline{python}{layout} node with \mintinline{python}{parameters} that pass through C++ and Numba.
+
+\begin{minted}{python}
+>>> class Point(awkward1.Record):
+...   def __repr__(self):
+...     return "<{} {}>".format(self["x"], self["y"])
+... 
+>>> # Add the Point class to Awkward'd name -> class namespace.
+>>> ak.namespace["Point"] = Point
+>>> # Set parameters for show records as Point objects with type "P".
+>>> array.layout.content.setparameter("__class__", "Point")
+>>> array.layout.content.setparameter("__str__", "P")
+>>> array
+<Array [[<1 [1.1]>, ... <3 [3, 0.3, 3.3]>]] type='3 * var * P'>
+\end{minted}
+
+\noindent Incidentally, string data types are implemented this way: there is no string array type, but lists of 8-bit integers that should be interpreted as strings are labeled as such, and therefore presented and operated upon as such.
+
+\begin{minted}{python}
+>>> array = ak.Array(["one", "two", "three"])
+>>> ak.tolist(array)
+['one', 'two', 'three']
+>>> # Remove the "string" interpretation.
+>>> array.layout.content.setparameter("__class__", None)
+>>> ak.tolist(array)
+[[111, 110, 101], [116, 119, 111], [116, 104, 114, 101, 101]]
 \end{minted}
 
 \subsection{C++ layer}
+
+HERE
 
 \subsection{Numba layer}
 
