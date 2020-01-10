@@ -95,26 +95,6 @@ From a data analyst's perspective, Awkward Array is a library with one important
 
 The nodes that define the structure of an array, which were the basic types of the original Awkward Array library, are accessible through a \mintinline{python}{layout} property, but most physicists won't need to access this layer.
 
-%% \begin{minted}{python}
-%% >>> array.layout
-%% <ListOffsetArray64>
-%%   <offsets><Index64 i="[0 2 2 3]" offset="0"/></offsets>
-%%   <content><RecordArray>
-%%     <field index="0" key="x">
-%%       <NumpyArray format="l" shape="3" data="1 2 3"/>
-%%     </field>
-%%     <field index="1" key="y">
-%%       <ListOffsetArray64>
-%%         <offsets><Index64 i="[0 1 3 6]" offset="0"/></offsets>
-%%         <content>
-%%           <NumpyArray format="d" shape="6" data="1.1 2 0.2 3 0.3 3.3"/>
-%%         </content>
-%%       </ListOffsetArray64>
-%%     </field>
-%%   </RecordArray></content>
-%% </ListOffsetArray64>
-%% \end{minted}
-
 A surprisingly important use-case for the original Awkward Array was the ability to add domain-specific code to the data structures. For example, records with fields named \mintinline{python}{"pt"}, \mintinline{python}{"eta"}, \mintinline{python}{"phi"}, and \mintinline{python}{"mass"} were wrapped as \mintinline{python}{LorentzVector} objects, with operations on arrays of \mintinline{python}{LorentzVectors} (addition, boosting, $\Delta R$ calculations, etc.) provided as methods. However, this feature was implemented using Python class inheritance, which was fragile because new Python objects for the same data are frequently created, and it was easy to lose the necessary superclasses in these transformations.
 
 This feature is implemented more robustly in Awkward 1.0 by only applying the interpretation when creating the high-level wrapper, and keeping track of how to interpret each \mintinline{python}{layout} node with \mintinline{python}{parameters} that pass through C++ and Numba. For example,
@@ -147,7 +127,31 @@ This feature is implemented more robustly in Awkward 1.0 by only applying the in
 
 \subsection{C++ layer}
 
-HERE
+The structural nodes underlying the above example are all C++ classes, wrapped as Python classes with pybind11 [ref].
+
+\begin{minted}{python}
+>>> array.layout
+<ListOffsetArray64>
+  <offsets><Index64 i="[0 2 2 3]"/></offsets>
+  <content><RecordArray>
+    <field index="0" key="x">
+      <NumpyArray format="l" shape="3" data="1 2 3"/>
+    </field>
+    <field index="1" key="y">
+      <ListOffsetArray64>
+        <offsets><Index64 i="[0 1 3 6]"/></offsets>
+        <content>
+          <NumpyArray format="d" shape="6" data="1.1 2 0.2 3 0.3 3.3"/>
+        </content>
+      </ListOffsetArray64>
+    </field>
+  </RecordArray></content>
+</ListOffsetArray64>
+\end{minted}
+
+
+
+
 
 \subsection{Numba layer}
 
