@@ -36,7 +36,7 @@ The Awkward Array library [2018 ROOT workshop ref] was created to provide these 
 \caption{Number of pip-installations per day (smoothed by a 60-day moving average) for popular data analysis libraries (numpy, scipy, pandas, matplotlib) and particle physics libraries (root-numpy, iminuit, rootpy, uproot, awkward, coffea) on operating systems not used for batch jobs (MacOS and Windows). \label{fig:pip-timeline}}
 \end{figure}
 
-Feedback from physicists, such as the interviews we reported previously [2019 ACAT paper ref] and in private conversations at a series of tutorials, has revealed that physicists appreciate the NumPy-like interface when it's easy to see how an analysis task can be expressed that way, but still need an interface for imperative programming. Some names were poorly chosen, leading to confusion and name-conflicts, and more of the library's internal structure should be hidden from end-users. In addition, the original library's pure NumPy implementation has been hard to extend and maintain.
+Feedback from physicists, such as the interviews we reported previously [2019 ACAT paper ref] and in private conversations at a series of tutorials, has revealed that physicists appreciate the NumPy-like interface when it's easy to see how an analysis task can be expressed that way, but still need an interface for imperative programming. In addition, some names were poorly chosen, leading to confusion and name-conflicts, and more of the library's internal structure should be hidden from end-users. Also, the original library's pure NumPy implementation has been hard to extend and maintain.
 
 All of these issues argue for a redesign of the library, keeping the core concepts that work, restructuring the internals for maintainance, and presenting a simpler, more uniform user interface. The Awkward Array reimplementation project has been dubbed ``Awkward 1.0'' and has been allocated as a 6-month task from September 2019 to March 2020.
 
@@ -46,14 +46,14 @@ The principle of Awkward Array is that an array of any data structure can be con
 
 In the original Awkward Array library, the nodes were Python classes with special methods that NumPy recognizes to pass array-at-a-time operations through the data structure. Although that was an easy way to get started and respond rapidly to users' needs, some tasks are more difficult to express purely in NumPy calls than others. For complete generality, Awkward 1.0 nodes are implemented as C++ classes, operated upon by specialized code.
 
-We can satisfy users' needs for imperative access by adding Numba extensions to Awkward Array, but this would amount to rewriting the entire library, once in precompiled code (C++), and once in JIT-compiled code (Numba). To ease maintainance burdens, we have separated the Awkward 1.0 operations---specialized loops that perform array manipulations---from the data structures, ownership, and allocation. Operations only need to be written once, and can be called from the two versions of the ownership code, in C++ and Numba.
+We can satisfy users' needs for imperative access by adding Numba extensions to Awkward Array, but this would amount to rewriting the entire library, once in precompiled code (C++), and once in JIT-compiled code (Numba). To ease maintainance burdens, we have separated the Awkward 1.0 operations---specialized loops that perform array manipulations---from the persistent data structures themselves. Operations only need to be written once, and can be called from the two versions of the data structures, one in C++ and the other in Numba.
 
 In total, there are four layers:
 
 \begin{enumerate}
 \item High-level user interface in Python, which presents a single \mintinline{python}{awkward.Array} class.
 \item Nested data structure nodes: C++ classes wrapped in Python with pybind11.
-\item Two versions of the ownership layer, in C++ and Numba.
+\item Two versions of the data structures, in C++ and Numba.
 \item Awkward Array operations in specialized, precompiled code with a pure C interface (can be called from C++ and Numba.
 \end{enumerate}
 
