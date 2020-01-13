@@ -21,7 +21,7 @@
 
 \section{Introduction}
 
-Columnar data structures, in which identically typed data fields are contiguous in memory, are a good fit to physics analysis use-cases. This was recognized as early as 1989 when column-wise ntuples were added to PAW and in 1995 when ``splitting'' was added to the ROOT file format. In the past decade, with the Google Dremel paper [ref], the Parquet file format [ref], the Arrow memory interchange format [ref], and the inclusion of ``ragged tensors'' in TensorFlow [ref], the significance of hierarchical columnar data structures has been recognized beyond particle physics.
+Columnar data structures, in which identically typed data fields are contiguous in memory, are a good fit to physics analysis use-cases. This was recognized as early as 1989 when column-wise ntuples were added to PAW and in 1995 when ``splitting'' was incorporated in the ROOT file format. In the past decade, with the Google Dremel paper [ref], the Parquet file format [ref], the Arrow memory interchange format [ref], and the inclusion of ``ragged tensors'' in TensorFlow [ref], the significance of hierarchical columnar data structures has been recognized beyond particle physics.
 
 With the exception of the Columnar Objects experiment of T.\ Mattis et.\ al.\ [ref] and the XND library [ref], all of these projects focus on representing, storing, and transmitting columnar data structures, rather than operating on them. Physicists need to apply structure-changing transformations to search for decay topology candidates and other tasks that can change the level of nesting and multiplicity of their data. Operations of this complexity can be defined as a suite of primitives, allowing for NumPy-like convenience in Python \mbox{[2018 CHEP ref].\hspace{-1 cm}}
 
@@ -38,13 +38,13 @@ The Awkward Array library [2018 ROOT workshop ref] was created to provide these 
 
 Feedback from physicists, such as the interviews we reported previously [2019 ACAT paper ref] and in private conversations at a series of tutorials, has revealed that physicists appreciate the NumPy-like interface when it's easy to see how an analysis task can be expressed that way, but still need an interface for imperative programming. In addition, some names were poorly chosen, leading to confusion and name-conflicts, and more of the library's internal structure should be hidden from end-users. Also, the original library's pure NumPy implementation has been hard to extend and maintain.
 
-All of these issues argue for a redesign of the library, keeping the core concepts that made it successful, restructuring the internals for maintainance, and presenting a simpler, more uniform user interface. This reimplementation project has been dubbed ``Awkward 1.0'' and has been allocated as a 6-month task from September 2019 to March 2020.
+All of these issues argue for a redesign of the library, keeping the core concepts that made it successful, restructuring the internals for maintainance, and presenting a simpler, more uniform interface to the user. This reimplementation project has been dubbed ``Awkward 1.0'' and has been allocated as a 6-month task from September 2019 to March 2020.
 
 \section{Architecture}
 
 The principle of Awkward Array is that an array of any data structure can be constructed from a composition of nodes that each provide one feature. The prototypical example is a jagged array, which represents an array of unequal-length subarrays with an array of integer \mintinline{c++}{offsets} and a contiguous array of \mintinline{c++}{content}. If the \mintinline{c++}{content} is one-dimensional, the jagged array is two-dimensional, where the second dimension has unequal lengths. To make a three-dimensional jagged array (unequal lengths in both inner dimensions), one jagged array node can be used as the \mintinline{c++}{content} for another. With an appropriate set of generators, any data structure can be assembled.
 
-In the original Awkward Array library, the nodes were Python classes with special methods that NumPy recognizes to pass array-at-a-time operations through the data structure. Although that was an easy way to get started and respond rapidly to users' needs, some operations are difficult to express in NumPy calls only. For complete generality, Awkward 1.0 nodes are implemented as C++ classes, operated upon by specially compiled code.
+In the original Awkward Array library, the nodes were Python classes with special methods that NumPy recognizes to pass array-at-a-time operations through the data structure. Although that was an easy way to get started and respond rapidly to users' needs, some operations are difficult to implement in NumPy calls only. For complete generality, Awkward 1.0 nodes are implemented as C++ classes, operated upon by specially compiled code.
 
 We can satisfy the need for imperative access by adding Numba [ref] extensions to Awkward Array, but this would amount to rewriting the entire library, once in precompiled code (C++), and once in JIT-compiled code (Numba). To ease maintainance burdens, we have separated the code that implements operations from the code that manages data structures. Data structures are implemented twice---in C++ and Numba---but they both call the same suite of operations. In total, there are four layers:
 
@@ -55,7 +55,7 @@ We can satisfy the need for imperative access by adding Numba [ref] extensions t
 \item Awkward Array operations in specialized, precompiled code with a pure C interface (can be called from C++ and Numba), called ``kernel functions.''
 \end{enumerate}
 
-\noindent With one exception to be discussed in Section~\ref{lab:fillablearray}, all loops that scale with the number of entries in arrays are in the kernel functions layer. All allocation and memory ownership is in the C++ and Numba layer. This separation mimics NumPy itself, which uses Python reference counting to manage array ownership and precompiled code for all operations that scale with the size of the arrays. Also, like CuPy and array libraries for machine learning, we could add GPU support by only reimplementing the kernel functions for GPU targets.
+\noindent With one exception to be discussed in Section~\ref{lab:fillablearray}, all loops that scale with the number of array elements are in the kernel functions layer. All allocation and memory ownership is in the C++ and Numba layer. This separation mimics NumPy itself, which uses Python reference counting to manage array ownership and precompiled code for all operations that scale with the size of the arrays. Also, like CuPy and array libraries for machine learning, adding GPU support would only require a new implementation of the kernel functions, not all layers.
 
 \subsection{High-level Python layer}
 \label{lab:high-level}
@@ -121,7 +121,7 @@ This feature is implemented in Awkward 1.0 by instead applying the interpretatio
 <Array [[Point(1 [1.1]), ... Point(3 [3, 0.3, 3.3])]] type='3 * var * P'>
 \end{minted}
 
-\noindent Incidentally, strings are implemented this way, too: there is no string array type, but lists of 8-bit integers that should be interpreted as strings are labeled as such, and therefore presented and operated upon as such.
+\noindent Incidentally, strings are implemented the same way: there is no string array type, but lists of 8-bit integers that should be interpreted as strings are labeled as such, and therefore presented and operated upon as such.
 
 \begin{minted}{python}
 >>> array = ak.Array(["one", "two", "three"])
@@ -139,7 +139,7 @@ This feature is implemented in Awkward 1.0 by instead applying the interpretatio
 
 The \mintinline{python}{layout} nodes underlying the above example are all C++ class instances, wrapped in Python using pybind11 [ref] (see Figure~\ref{fig:example-hierarchy}). To allow dynamic array construction in Python, these nodes are reference-counted with virtual inheritance: \mintinline{c++}{std::shared_ptr<Content>}, where \mintinline{c++}{Content} is the superclass of all node classes. Compile-time templates are only used to specialize integer types (e.g.\ \mintinline{c++}{ListOffsetArray32} versus \mintinline{c++}{ListOffsetArray64}), not for building nested structures.
 
-The use of shared pointers and virtual inheritance might, at first, seem to be a performance bottleneck, but it is not. An operation on an Awkward Array only needs to step through the shared pointers and inheritance that defines the data {\it type}, which is several to hundreds of nodes at most. However, the same operation loops over the {\it values} in the array, which can number in the billions, in the kernel functions, which involve no smart pointers or inheritance. Thus, optimization efforts should focus on the kernel functions, not the C++ layer.
+The use of shared pointers and virtual inheritance might, at first, seem to be a performance bottleneck, but it is not. An operation on an Awkward Array only needs to step through the shared pointers and inheritance that defines the data {\it type}, which is several to hundreds of nodes at most. The same operation loops over the {\it values} in the array, which can number in the billions, in the kernel functions, which involve no smart pointers or inheritance. Thus, optimization efforts should focus on the kernel functions, rather than the C++ layer.
 
 \subsection{Numba layer}
 
@@ -151,22 +151,16 @@ Numba has an extension mechanism that allows third-party libraries to inform the
 
 All operations that transform arrays are implemented in a suite of kernel functions, which are written in C++ but exported as \mintinline{c++}{extern "C"}. Only C-language features can be used in the function signatures, which excludes classes, dispatch by argument types, and templates. Although this is inconvenient, Numba can only call external C functions, not C++, and thus this is a requirement for C++ and Numba to use the same kernel functions.
 
-Apart from internal template specialization on some argument types, the kernel function implementations also resemble pure C functions because they consist entirely of \mintinline{c++}{for} loops that fill preallocated arrays (allocated and owned by C++ or Numba). Our use of the word ``kernel'' derives from the fact that this separation between bookkeeping in C++ and fast math in simple, C-like code resembles the separation of CPU-bound and GPU-bound code in GPU applications. Thus, the library is already organized in a GPU-friendly way; all that remains is to provide GPU-native implementations of each kernel function.
+Apart from internal template specialization on some argument types, the kernel function implementations also resemble pure C functions because they consist entirely of \mintinline{c++}{for} loops that fill preallocated arrays (allocated and owned by C++ or Numba). Our use of the word ``kernel'' derives from the fact that this separation between slow bookkeeping in C++ and fast math in simple, C-like code resembles the separation of CPU-bound and GPU-bound code in GPU applications. Thus, the library is already organized in a GPU-friendly way; all that remains is to provide GPU-native implementations of each kernel function.
 
 All foreseeable optimization effort will be focused on the kernel functions, rather than the bookkeeping and interface code in C++, Numba, and Python, with one exception: record-oriented $\to$ columnar data transformations discussed in the next section.
 
 \section{Record-oriented $\to$ columnar}
 \label{lab:fillablearray}
 
-Transformations of Awkward Arrays to and from columnar formats like ROOT and Arrow are either single-\mintinline{c++}{malloc} array copies or zero-copy data casting. Record-oriented data, however, require significant processing to transform into any columnar format.
+Transformations of Awkward Arrays to and from columnar formats like Arrow and ``split'' ROOT branches are either single-\mintinline{c++}{malloc} array copies or zero-copy data casting. Record-oriented data, however, require significant processing to transform into any columnar format.
 
-Such a function, named \mintinline{python}{fromiter} in the original Awkward Array library, had many important use-cases. We have therefore moved the \mintinline{python}{fromiter} implementation from Python into C++ and observe a 10--20$\times$ speed-up for typical data structures. Any record-oriented $\to$ columnar transformation of data whose type is not known at compile-time must include virtual method indirection, so further optimization is only possible for specialized types. This is the exception to the rule that all operations that scale with the size of the dataset must be implemented in kernel functions, because the accumulated arrays are dynamically typed.
-
-Our record-oriented $\to$ columnar algorithm discovers the data's type during the data transformation pass. For example, if a particular field has always been filled with integers, the first time it is filled with a floating-point value invokes a conversion of the previous integer data into floating-point, then the floating-point array is used henceforth. In the same example, later filling that field with a string invokes a replacement of the floating-point array with a tagged union of floating-point and strings (reusing the floating-point array).
-
-Awkward 1.0 provides three interfaces to this algorithm: (a)~Python objects $\to$ Awkward Arrays, like the old \mintinline{python}{fromiter}, (b)~JSON data $\to$ Awkward Arrays using the RapidJSON C++ library's SAX interface, and (c)~a builder pattern in which the user can fill individual values via method calls. The latter is the most powerful interface, and it is provided in Python, C++, and Numba. In C++, it would allow Awkward interfaces for established C++ projects, and in Numba, it provides a convenient way for physicists to build complex data structures.
-
-One particularly important special case of record-oriented $\to$ columnar transformation is unequal-length lists (of any depth of nesting) of numbers. Many analysis-level ROOT files contain data of this type, though ROOT's \mintinline{c++}{TTree} serialization only stores singly jagged arrays in a columnar format: deeper levels are record-oriented. Since the data type is partially known, a specialized implementation improves upon both the old and new \mintinline{python}{fromiter}, as shown in Figure~\ref{fig:read_ttree}. The more long-term solution, however, is ROOT's new \mintinline{c++}{RNTuple} serialization, which is columnar at all levels, making this transformation unnecessary.
+Such a function, named \mintinline{python}{fromiter} in the original Awkward Array library, had many important use-cases. We have therefore moved the \mintinline{python}{fromiter} implementation from Python into C++ and observe a 10--20$\times$ speed-up for typical data structures (see Figure~\ref{fig:read_ttree}). Any record-oriented $\to$ columnar transformation of data whose type is not known at compile-time must include virtual method indirection, so further optimization is only possible for specialized types. This is the exception to the rule that all operations that scale with the size of the dataset must be implemented in kernel functions, because the accumulated arrays are dynamically typed.
 
 \begin{figure}
 \begin{center}
@@ -177,11 +171,19 @@ One particularly important special case of record-oriented $\to$ columnar transf
 \caption{Rate of reading {\tt list}$^{\mbox{\tt N}}${\tt (float)} data from Python objects (``pyobj'') and from JSON strings in the old and new Awkward \mintinline{python}{fromiter}, from ROOT's old \mintinline{c++}{TTree}, which only needs the transformation for doubly jagged and above, and from ROOT's new \mintinline{c++}{RNTuple}, which never needs the transformation. \label{fig:read_ttree}}
 \end{figure}
 
+Our record-oriented $\to$ columnar algorithm discovers the data's type during the data transformation pass. For example, if a particular field has always been filled with integers, the first time it is filled with a floating-point value invokes a conversion of the previous integer data into floating-point, then the floating-point array is used henceforth. In the same example, later filling that field with a string invokes a replacement of the floating-point array with a tagged union of floating-point and strings (reusing the floating-point array).
+
+Awkward 1.0 provides three interfaces to this algorithm: (a)~Python objects $\to$ Awkward Arrays, like the old \mintinline{python}{fromiter}, (b)~JSON data $\to$ Awkward Arrays using the RapidJSON C++ library's SAX interface, and (c)~a builder pattern in which the user can fill individual values via method calls. The latter is the most powerful interface, and it is provided in Python, C++, and Numba. In C++, it would allow Awkward interfaces for established C++ projects, and in Numba, it provides a convenient way for physicists to build complex data structures.
+
+One particularly important special case of record-oriented $\to$ columnar transformation is unequal-length lists (of any depth of nesting) of numbers. Many analysis-level ROOT files contain data of this type, though ROOT's \mintinline{c++}{TTree} serialization only stores singly jagged arrays in a columnar format: deeper levels are record-oriented. Since the data type is partially known, a specialized implementation improves upon both the old and new \mintinline{python}{fromiter}, as shown in Figure~\ref{fig:read_ttree}. The more long-term solution, however, is ROOT's new \mintinline{c++}{RNTuple} serialization, which is columnar at all levels, making this transformation unnecessary.
+
 % \section{Status}
 
 \section{Transitioning to the new library}
 
-The reimplementation of Awkward Array in C++ and Numba provides new features, a more unified interface, and more maintainable architecture. These improvements will be introduced to current users of Awkward Array in March 2020, beginning a period in which the old library can be pip-installed/imported as \mintinline{bash}{awkward} and the new one as \mintinline{bash}{awkward1}. Dependent libraries like \mintinline{bash}{uproot} will transition to \mintinline{bash}{awkward1} as a dependency. Based on user response, the old and new versions of Awkward Array will become \mintinline{bash}{awkward0} and \mintinline{bash}{awkward}, respectively, allowing physics analyses that were written with the old Awkward interface to continue unchanged, while future developments focus on the new library.
+The reimplementation of Awkward Array in C++ and Numba provides new features, a more unified interface, and higher performance in some cases. These improvements will be introduced to current users of Awkward Array in March 2020, beginning a period in which the old library can be pip-installed/imported as \mintinline{bash}{awkward} and the new one as \mintinline{bash}{awkward1}. Dependent libraries like \mintinline{bash}{uproot} will switch to \mintinline{bash}{awkward1} as a dependency.
+
+Based on user response, the old and new versions of Awkward Array will become \mintinline{bash}{awkward0} and \mintinline{bash}{awkward}, respectively, allowing physics analyses that were written with the old Awkward interface to continue unchanged, apart from ``\mintinline{python}{import awkward0 as awkward}'', while future developments focus on the new library.
 
 %% \section{Introduction}
 %% \label{intro}
