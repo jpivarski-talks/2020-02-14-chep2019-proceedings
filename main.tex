@@ -2,6 +2,7 @@
 \usepackage[varg]{txfonts}
 \usepackage{graphicx}
 \usepackage{minted}
+\usepackage{hyperref}
 
 % 6 pages excluding references!
 
@@ -21,7 +22,7 @@
 
 \section{Introduction}
 
-Columnar data structures, in which identically typed data fields are contiguous in memory, are a good fit to physics analysis use-cases. This was recognized as early as 1989 when column-wise ntuples were added to PAW and in 1995 when ``splitting'' was incorporated in the ROOT file format. In the past decade, with the Google Dremel paper [ref], the Parquet file format [ref], the Arrow memory interchange format [ref], and the inclusion of ``ragged tensors'' in TensorFlow [ref], the significance of hierarchical columnar data structures has been recognized beyond particle physics.
+Columnar data structures, in which identically typed data fields are contiguous in memory, are a good fit to physics analysis use-cases. This was recognized as early as 1989 when column-wise ntuples were added to PAW and in 1997 when ``splitting'' was incorporated in the ROOT file format~\cite{rootio-1997}. In the past decade, with the Google Dremel paper~\cite{dremel}, the Parquet file format [ref], the Arrow memory interchange format [ref], and the inclusion of ``ragged tensors'' in TensorFlow [ref], the significance of hierarchical columnar data structures has been recognized beyond particle physics.
 
 With the exception of the Columnar Objects experiment of T.\ Mattis et.\ al.\ [ref] and the XND library [ref], all of these projects focus on representing, storing, and transmitting columnar data structures, rather than operating on them. Physicists need to apply structure-changing transformations to search for decay topology candidates and other tasks that can change the level of nesting and multiplicity of their data. Operations of this complexity can be defined as a suite of primitives, allowing for NumPy-like convenience in Python \mbox{[2018 CHEP ref].\hspace{-1 cm}}
 
@@ -199,8 +200,15 @@ Based on user response, the old and new versions of Awkward Array will become \m
 % Non-BibTeX users please use
 \begin{thebibliography}{}
 % and use \bibitem to create references.
-\bibitem{RefJ}
-Journal Author, Journal \textbf{Volume}, page numbers (year)
+%% \bibitem{RefJ}
+%% Journal Author, Journal \textbf{Volume}, page numbers (year)
+
+\bibitem{rootio-1997}
+R.\ Brun, N.\ Buncic, and F.\ Rademakers, \\ \href{https://web.archive.org/web/19970225083621/http://root.cern.ch/root/HowtoWriteTree.html}{\tt http://root.cern.ch/root/HowtoWriteTree.html}, retrieved Feb 25, 1997.
+
+\bibitem{dremel}
+S.\ Melnik, A.\ Gubarev, J.J.\ Long, G.\ Romer, S.\ Shivakumar, M.\ Tolton, and T.\ Vassilakis, \href{http://www.vldb2010.org/accept.htm}{Proc.\ of the 36th Int'l Conf on Very Large Data Bases}, pp.\ 330--339 (2010).
+
 \end{thebibliography}
 
 \end{document}
