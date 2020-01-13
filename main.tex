@@ -22,11 +22,11 @@
 
 \section{Introduction}
 
-Columnar data structures, in which identically typed data fields are contiguous in memory, are a good fit to physics analysis use-cases. This was recognized as early as 1989 when column-wise ntuples were added to PAW and in 1997 when ``splitting'' was incorporated in the ROOT file format~\cite{rootio-1997}. In the past decade, with the Google Dremel paper~\cite{dremel}, the Parquet file format [ref], the Arrow memory interchange format [ref], and the inclusion of ``ragged tensors'' in TensorFlow [ref], the significance of hierarchical columnar data structures has been recognized beyond particle physics.
+Columnar data structures, in which identically typed data fields are contiguous in memory, are a good fit to physics analysis use-cases. This was recognized as early as 1989 when column-wise ntuples were added to PAW and in 1997 when ``splitting'' was incorporated in the ROOT file format~\cite{rootio-1997}. In the past decade, with the Google Dremel paper~\cite{dremel}, the Parquet file format~\cite{parquet}, the Arrow memory interchange format~\cite{arrow}, and the inclusion of ``ragged tensors'' in TensorFlow~\cite{tf-raggedtensor}, the significance of hierarchical columnar data structures has been recognized beyond particle physics.
 
-With the exception of the Columnar Objects experiment of T.\ Mattis et.\ al.\ [ref] and the XND library [ref], all of these projects focus on representing, storing, and transmitting columnar data structures, rather than operating on them. Physicists need to apply structure-changing transformations to search for decay topology candidates and other tasks that can change the level of nesting and multiplicity of their data. Operations of this complexity can be defined as a suite of primitives, allowing for NumPy-like convenience in Python \mbox{[2018 CHEP ref].\hspace{-1 cm}}
+With the exception of the Columnar Objects experiment of T.\ Mattis et.\ al.~\cite{columnar-objects} and the XND library~\cite{xnd-io}, all of these projects focus on representing, storing, and transmitting columnar data structures, rather than operating on them. Physicists need to apply structure-changing transformations to search for decay topology candidates and other tasks that can change the level of nesting and multiplicity of their data. Operations of this complexity can be defined as a suite of primitives, allowing for NumPy-like convenience in Python~\cite{chep-2018}.
 
-The Awkward Array library [2018 ROOT workshop ref] was created to provide these operations on array objects that are easily convertible to the other libraries (zero-copy in some cases). Since its release in September 2018, Awkward Array has become one of the most widely pip-installed packages for particle physics (see Figure~\ref{fig:pip-timeline}).
+The Awkward Array library~\cite{root-workshop-2018} was created to provide these operations on array objects that are easily convertible to the other libraries (zero-copy in some cases). Since its release in September 2018, Awkward Array has become one of the most widely pip-installed packages for particle physics (see Figure~\ref{fig:pip-timeline}).
 
 \begin{figure}
 \begin{center}
@@ -37,7 +37,7 @@ The Awkward Array library [2018 ROOT workshop ref] was created to provide these 
 \caption{Number of pip-installations per day (smoothed by a 60-day moving average) for popular data analysis libraries (numpy, scipy, pandas, matplotlib) and particle physics libraries (root-numpy, iminuit, rootpy, uproot, awkward, coffea) on operating systems not used for batch jobs (MacOS and Windows). \label{fig:pip-timeline}}
 \end{figure}
 
-Feedback from physicists, such as the interviews we reported previously [2019 ACAT paper ref] and in private conversations at a series of tutorials, has revealed that physicists appreciate the NumPy-like interface when it's easy to see how an analysis task can be expressed that way, but still need an interface for imperative programming. In addition, some names were poorly chosen, leading to confusion and name-conflicts, and more of the library's internal structure should be hidden from end-users. Also, the original library's pure NumPy implementation has been hard to extend and maintain.
+Feedback from physicists, such as the interviews we reported previously~\cite{acat-2019} and in private conversations at a series of tutorials, has revealed that physicists appreciate the NumPy-like interface when it's easy to see how an analysis task can be expressed that way, but still need an interface for imperative programming. In addition, some names were poorly chosen, leading to confusion and name-conflicts, and more of the library's internal structure should be hidden from end-users. Also, the original library's pure NumPy implementation has been hard to extend and maintain.
 
 All of these issues argue for a redesign of the library, keeping the core concepts that made it successful, restructuring the internals for maintainance, and presenting a simpler, more uniform interface to the user. This reimplementation project has been dubbed ``Awkward 1.0'' and has been allocated as a 6-month task from September 2019 to March 2020.
 
@@ -47,7 +47,7 @@ The principle of Awkward Array is that an array of any data structure can be con
 
 In the original Awkward Array library, the nodes were Python classes with special methods that NumPy recognizes to pass array-at-a-time operations through the data structure. Although that was an easy way to get started and respond rapidly to users' needs, some operations are difficult to implement in NumPy calls only. For complete generality, Awkward 1.0 nodes are implemented as C++ classes, operated upon by specially compiled code.
 
-We can satisfy the need for imperative access by adding Numba [ref] extensions to Awkward Array, but this would amount to rewriting the entire library, once in precompiled code (C++), and once in JIT-compiled code (Numba). To ease maintainance burdens, we have separated the code that implements operations from the code that manages data structures. Data structures are implemented twice---in C++ and Numba---but they both call the same suite of operations. In total, there are four layers:
+We can satisfy the need for imperative access by adding Numba~\cite{numba} extensions to Awkward Array, but this would amount to rewriting the entire library, once in precompiled code (C++), and once in JIT-compiled code (Numba). To ease maintainance burdens, we have separated the code that implements operations from the code that manages data structures. Data structures are implemented twice---in C++ and Numba---but they both call the same suite of operations. In total, there are four layers:
 
 \begin{enumerate}
 \item High-level user interface in Python, which presents a single \mintinline{python}{awkward.Array} class.
@@ -71,7 +71,7 @@ From a data analyst's perspective, the new Awkward Array library has only one im
 <Array [[{x: 1, y: [1.1]}, ... 3.3]}]] type='3 * var * {"x": int64,...'>
 \end{minted}
 
-\noindent Much like NumPy's \mintinline{python}{dtype}, the actual type of the array is a Python value (presented in DataShape [ref] notation).
+\noindent Much like NumPy's \mintinline{python}{dtype}, the actual type of the array is a Python value (presented in DataShape~\cite{datashape} notation).
 
 \begin{minted}{python}
 >>> ak.typeof(array)
@@ -138,7 +138,7 @@ This feature is implemented in Awkward 1.0 by instead applying the interpretatio
 
 \subsection{C++ layer}
 
-The \mintinline{python}{layout} nodes underlying the above example are all C++ class instances, wrapped in Python using pybind11 [ref] (see Figure~\ref{fig:example-hierarchy}). To allow dynamic array construction in Python, these nodes are reference-counted with virtual inheritance: \mintinline{c++}{std::shared_ptr<Content>}, where \mintinline{c++}{Content} is the superclass of all node classes. Compile-time templates are only used to specialize integer types (e.g.\ \mintinline{c++}{ListOffsetArray32} versus \mintinline{c++}{ListOffsetArray64}), not for building nested structures.
+The \mintinline{python}{layout} nodes underlying the above example are all C++ class instances, wrapped in Python using pybind11~\cite{pybind11} (see Figure~\ref{fig:example-hierarchy}). To allow dynamic array construction in Python, these nodes are reference-counted with virtual inheritance: \mintinline{c++}{std::shared_ptr<Content>}, where \mintinline{c++}{Content} is the superclass of all node classes. Compile-time templates are only used to specialize integer types (e.g.\ \mintinline{c++}{ListOffsetArray32} versus \mintinline{c++}{ListOffsetArray64}), not for building nested structures.
 
 The use of shared pointers and virtual inheritance might, at first, seem to be a performance bottleneck, but it is not. An operation on an Awkward Array only needs to step through the shared pointers and inheritance that defines the data {\it type}, which is several to hundreds of nodes at most. The same operation loops over the {\it values} in the array, which can number in the billions, in the kernel functions, which involve no smart pointers or inheritance. Thus, optimization efforts should focus on the kernel functions, rather than the C++ layer.
 
@@ -184,30 +184,49 @@ One particularly important special case of record-oriented $\to$ columnar transf
 
 The reimplementation of Awkward Array in C++ and Numba provides new features, a more unified interface, and higher performance in some cases. These improvements will be introduced to current users of Awkward Array in March 2020, beginning a period in which the old library can be pip-installed/imported as \mintinline{bash}{awkward} and the new one as \mintinline{bash}{awkward1}. Dependent libraries like \mintinline{bash}{uproot} will switch to \mintinline{bash}{awkward1} as a dependency.
 
-Based on user response, the old and new versions of Awkward Array will become \mintinline{bash}{awkward0} and \mintinline{bash}{awkward}, respectively, allowing physics analyses that were written with the old Awkward interface to continue unchanged, apart from ``\mintinline{python}{import awkward0 as awkward}'', while future developments focus on the new library.
+Based on user response, the old and new versions of Awkward Array will become \mintinline{bash}{awkward0} and \mintinline{bash}{awkward}, respectively, allowing physics analyses that were written with the old Awkward interface to continue unchanged, apart from importing \mintinline{bash}{awkward0} as \mintinline{bash}{awkward}, while future developments focus on the new library.
 
-%% \section{Introduction}
-%% \label{intro}
-%% Your text comes here. Separate text sections with
-
-%% \section{Section title}
-%% \label{sec-1}
-%% For bibliography use \cite{RefJ}
-
-% BibTeX or Biber users please use (the style is already called in the class, ensure that the "woc.bst" style is in your local directory)
-% \bibliography{name or your bibliography database}
-%
-% Non-BibTeX users please use
 \begin{thebibliography}{}
-% and use \bibitem to create references.
-%% \bibitem{RefJ}
 %% Journal Author, Journal \textbf{Volume}, page numbers (year)
 
 \bibitem{rootio-1997}
 R.\ Brun, N.\ Buncic, and F.\ Rademakers, \\ \href{https://web.archive.org/web/19970225083621/http://root.cern.ch/root/HowtoWriteTree.html}{\tt http://root.cern.ch/root/HowtoWriteTree.html}, retrieved Feb 25, 1997.
 
 \bibitem{dremel}
-S.\ Melnik, A.\ Gubarev, J.J.\ Long, G.\ Romer, S.\ Shivakumar, M.\ Tolton, and T.\ Vassilakis, \href{http://www.vldb2010.org/accept.htm}{Proc.\ of the 36th Int'l Conf on Very Large Data Bases}, pp.\ 330--339 (2010).
+S.\ Melnik, A.\ Gubarev, J.J.\ Long, G.\ Romer, S.\ Shivakumar, M.\ Tolton, and T.\ Vassilakis, \href{https://ai.google/research/pubs/pub36632}{``Dremel: Interactive Analysis of Web-Scale Datasets,''} \href{http://www.vldb2010.org/accept.htm}{Proc.\ of the 36th Int'l Conf on Very Large Data Bases}, pp.\ 330--339 (2010).
+
+\bibitem{parquet}
+D.\ Vohra, \href{https://doi.org/10.1007/978-1-4842-2199-0_8}{Apache Parquet.} {\bf In:}\ {\it Practical Hadoop Ecosystem.} Apress, Berkeley, CA (2016).
+
+\bibitem{arrow}
+\href{https://web.archive.org/web/20160220113406/http://arrow.apache.org/}{\tt http://arrow.apache.org}, retrieved Feb 20, 2016.
+
+\bibitem{tf-raggedtensor}
+\href{https://web.archive.org/web/20191016194209/https://www.tensorflow.org/guide/ragged_tensor}{\tt https://www.tensorflow.org/guide/ragged\_tensor}, retrieved Oct 16, 2019.
+
+\bibitem{columnar-objects}
+T.\ Mattis, J.\ Henning, P.\ Rein, R.\ Hirschfeld, and M.\ Appeltauer, \href{https://dl.acm.org/citation.cfm?id=2814228.2814230}{``Columnar Objects: Improving the Performance of Analytical Applications,''} {\it ACM Int'l Symp.\ on New Ideas, New Paradigms, and Reflections on Programming and Software (Onward!),} pp.\ 197--210 (2015).
+
+\bibitem{xnd-io}
+\href{https://web.archive.org/web/20180816220247/https://xnd.io/}{\tt https://xnd.io}, retrieved Aug 16, 2018.
+
+\bibitem{chep-2018}
+J.\ Pivarski, J.\ Nandi, D.\ Lange, and P.\ Elmer, \href{https://doi.org/10.1051/epjconf/201921406026}{``Columnar data processing for HEP analysis,''} European Physical Journal Web of Conferences \textbf{214}, 06026 (2019).
+
+\bibitem{root-workshop-2018}
+J.\ Pivarski, \href{https://indico.cern.ch/event/697389/contributions/3102772/}{``Vectorized processing of nested data,''} ROOT User's Workshop (2018).
+
+\bibitem{acat-2019}
+J.\ Pivarski and P.\ Elmer, \href{https://indico.cern.ch/event/708041/contributions/3276200/}{``Nested data structures in array and SIMD frameworks,''} 19th International Workshop on Advanced Computing and Analysis Techniques in Physics Research (2019).
+
+\bibitem{numba}
+S.\ K.\ Lam, A.\ Pitrou, S.\ Seibert, \href{https://doi.org/10.1145/2833157.2833162}{``Numba: a LLVM-based Python JIT compiler,''} LLVM '15: Proceedings of the Second Workshop on the LLVM Compiler Infrastructure in HPC (2015).
+
+\bibitem{datashape}
+\href{https://web.archive.org/web/20160626181703/https://datashape.readthedocs.io/en/latest/}{\tt https://datashape.readthedocs.io}, retrieved Jun 26, 2016.
+
+\bibitem{pybind11}
+W.\ Jakob, J.\ Rhinelander, and D.\ Moldovan \href{https://github.com/pybind/pybind11}{``pybind11 --- Seamless operability between C++11 and Python''} (2016).
 
 \end{thebibliography}
 
