@@ -31,6 +31,8 @@ The Awkward Array library [2018 ROOT workshop ref] was created to provide these 
 \begin{center}
 \includegraphics[width=0.75\linewidth]{pip-timeline.pdf}
 \end{center}
+
+\vspace{-0.25 cm}
 \caption{Number of pip-installations per day (smoothed by a 60-day moving average) for popular data analysis libraries (numpy, scipy, pandas, matplotlib) and particle physics libraries (root-numpy, iminuit, rootpy, uproot, awkward, coffea) on operating systems not used for batch jobs (MacOS and Windows). \label{fig:pip-timeline}}
 \end{figure}
 
@@ -96,6 +98,8 @@ The nodes that define the structure of an array, which were user-level types in 
 \begin{center}
 \includegraphics[width=\linewidth]{example-hierarchy.pdf}
 \end{center}
+
+\vspace{-0.25 cm}
 \caption{Structure of the array discussed in Section~\ref{lab:high-level}: hierarchical \mintinline{python}{layout} nodes are wrapped in a single, user-facing \mintinline{python}{awkward.Array}. \label{fig:example-hierarchy}}
 \end{figure}
 
@@ -168,15 +172,16 @@ One particularly important special case of record-oriented $\to$ columnar transf
 \begin{center}
 \includegraphics[width=0.75\linewidth]{read_ttree.pdf}
 \end{center}
+
+\vspace{-0.25 cm}
 \caption{Rate of reading {\tt list}$^{\mbox{\tt N}}${\tt (float)} data from Python objects (``pyobj'') and from JSON strings in the old and new Awkward \mintinline{python}{fromiter}, from ROOT's old \mintinline{c++}{TTree}, which only needs the transformation for doubly jagged and above, and from ROOT's new \mintinline{c++}{RNTuple}, which never needs the transformation. \label{fig:read_ttree}}
 \end{figure}
 
 % \section{Status}
 
-\section{Conclusion}
+\section{Transitioning to the new library}
 
-
-
+The reimplementation of Awkward Array in C++ and Numba provides new features, a more unified interface, and more maintainable architecture. These improvements will be introduced to current users of Awkward Array in March 2020, beginning a period in which the old library can be pip-installed/imported as \mintinline{bash}{awkward} and the new one as \mintinline{bash}{awkward1}. Dependent libraries like \mintinline{bash}{uproot} will transition to \mintinline{bash}{awkward1} as a dependency. Based on user response, the old and new versions of Awkward Array will become \mintinline{bash}{awkward0} and \mintinline{bash}{awkward}, respectively, allowing physics analyses that were written with the old Awkward interface to continue unchanged, while future developments focus on the new library.
 
 %% \section{Introduction}
 %% \label{intro}
