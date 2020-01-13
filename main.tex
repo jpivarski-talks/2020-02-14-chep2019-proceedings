@@ -178,13 +178,13 @@ Our record-oriented $\to$ columnar algorithm discovers the data's type during th
 
 Awkward 1.0 provides three interfaces to this algorithm: (a)~Python objects $\to$ Awkward Arrays, like the old \mintinline{python}{fromiter}, (b)~JSON data $\to$ Awkward Arrays using the RapidJSON C++ library's SAX interface, and (c)~a builder pattern in which the user can fill individual values via method calls. The latter is the most powerful interface, and it is provided in Python, C++, and Numba. In C++, it would allow Awkward interfaces for established C++ projects, and in Numba, it provides a convenient way for physicists to build complex data structures.
 
-\subsection{Deeply nested data from ROOT}
+One particularly important special case of record-oriented $\to$ columnar transformation is unequal-length lists (of any depth of nesting) of numbers. Many analysis-level ROOT files contain data of this type, though ROOT's \mintinline{c++}{TTree} serialization only stores singly jagged arrays in a columnar format: deeper levels are record-oriented. Since the data type is partially known, a specialized implementation improves upon both the old and new \mintinline{python}{fromiter}, as shown in Figure~\ref{fig:read_ttree}. The more long-term solution, however, is ROOT's new \mintinline{c++}{RNTuple} serialization, which is columnar at all levels, making this transformation unnecessary.
 
 \begin{figure}
 \begin{center}
 \includegraphics[width=0.75\linewidth]{read_ttree.pdf}
 \end{center}
-\caption{HERE \label{fig:read_ttree}}
+\caption{Rate of reading {\tt list}$^{\mbox{\tt N}}${\tt (float)} data from Python objects (``pyobj'') and from JSON strings in the old and new Awkward \mintinline{python}{fromiter}, from ROOT's old \mintinline{c++}{TTree}, which only needs the transformation for doubly jagged and above, and from ROOT's new \mintinline{c++}{RNTuple}, which never needs the transformation. \label{fig:read_ttree}}
 \end{figure}
 
 % \section{Status}
