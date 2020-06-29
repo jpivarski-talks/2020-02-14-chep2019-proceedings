@@ -39,13 +39,13 @@ The Awkward Array library~\cite{root-workshop-2018} was created to provide these
 
 Feedback from physicists, such as the interviews we reported previously~\cite{acat-2019} and in private conversations at a series of tutorials, has revealed that physicists appreciate the NumPy-like interface when it's easy to see how an analysis task can be expressed that way, but still need an interface for imperative programming. In addition, some names were poorly chosen, leading to confusion and name-conflicts, and more of the library's internal structure should be hidden from end-users. Also, the original library's pure NumPy implementation has been hard to extend and maintain.
 
-All of these issues argue for a redesign of the library, keeping the core concepts that made it successful, restructuring the internals for maintainance, and presenting a simpler, more uniform interface to the user. This reimplementation project has been dubbed ``Awkward 1.0'' and has been allocated as a 6-month task from September 2019 to March 2020.
+All of these issues argue for a redesign of the library, keeping the core concepts that made it successful, restructuring the internals for maintainance, and presenting a simpler, more uniform interface to the user. This reimplementation project was dubbed ``Awkward 1.x'' and was completed in March 2020.
 
 \section{Architecture}
 
 The principle of Awkward Array is that an array of any data structure can be constructed from a composition of nodes that each provide one feature. The prototypical example is a jagged array, which represents an array of unequal-length subarrays with an array of integer \mintinline{c++}{offsets} and a contiguous array of \mintinline{c++}{content}. If the \mintinline{c++}{content} is one-dimensional, the jagged array is two-dimensional, where the second dimension has unequal lengths. To make a three-dimensional jagged array (unequal lengths in both inner dimensions), one jagged array node can be used as the \mintinline{c++}{content} for another. With an appropriate set of generators, any data structure can be assembled.
 
-In the original Awkward Array library, the nodes were Python classes with special methods that NumPy recognizes to pass array-at-a-time operations through the data structure. Although that was an easy way to get started and respond rapidly to users' needs, some operations are difficult to implement in NumPy calls only. For complete generality, Awkward 1.0 nodes are implemented as C++ classes, operated upon by specially compiled code.
+In the original Awkward Array library, the nodes were Python classes with special methods that NumPy recognizes to pass array-at-a-time operations through the data structure. Although that was an easy way to get started and respond rapidly to users' needs, some operations are difficult to implement in NumPy calls only. For complete generality, Awkward 1.x nodes are implemented as C++ classes, operated upon by specially compiled code.
 
 We can satisfy the need for imperative access by adding Numba~\cite{numba} extensions to Awkward Array, but this would amount to rewriting the entire library, once in precompiled code (C++), and once in JIT-compiled code (Numba). To ease maintainance burdens, we have separated the code that implements operations from the code that manages data structures. Data structures are implemented twice---in C++ and Numba---but they both call the same suite of operations. In total, there are four layers:
 
@@ -106,10 +106,10 @@ The nodes that define the structure of an array, which were user-level types in 
 
 A surprisingly important use-case for the original Awkward Array was the ability to add domain-specific code to the data structures. For example, records with fields named \mintinline{python}{"pt"}, \mintinline{python}{"eta"}, \mintinline{python}{"phi"}, and \mintinline{python}{"mass"} were wrapped as \mintinline{python}{LorentzVector} objects, with operations on arrays of \mintinline{python}{LorentzVectors} (addition, boosting, $\Delta R$ distances, etc.) provided as methods. However, this feature was implemented using Python class inheritance, which was fragile because new Python objects for the same data are frequently created, and it was easy to lose the necessary superclasses in these transformations.
 
-This feature is implemented in Awkward 1.0 by instead applying the interpretation only when creating the high-level wrapper, and keeping track of how to interpret each \mintinline{python}{layout} node with JSON-formatted \mintinline{python}{parameters} that pass through C++ and Numba. For example,
+This feature is implemented in Awkward 1.x by instead applying the interpretation only when creating the high-level wrapper, and keeping track of how to interpret each \mintinline{python}{layout} node with JSON-formatted \mintinline{python}{parameters} that pass through C++ and Numba. For example,
 
 \begin{minted}{python}
->>> class Point(awkward1.Record):
+>>> class Point(ak.Record):
 ...   def __repr__(self):
 ...     return "Point({} {})".format(self["x"], self["y"])
 \end{minted}
@@ -146,7 +146,7 @@ The use of shared pointers and virtual inheritance might, at first, seem to be a
 
 Numba is an opt-in JIT-compiler for a subset of Python, extensively covering NumPy arrays and their operations. Since Numba-compiled code looks like familiar, imperative Python, users can debug algorithms without compilation and only JIT-compile those functions when they are ready to scale up to large datasets.
 
-Numba has an extension mechanism that allows third-party libraries to inform the Numba compiler of new data types. Awkward 1.0 uses this extension mechanism to implement Awkward Arrays and their operations in Numba-compiled functions. This is a second implementation of the node data structures and their memory-ownership, but not the kernel functions, which C++ and Numba both call.
+Numba has an extension mechanism that allows third-party libraries to inform the Numba compiler of new data types. Awkward 1.x uses this extension mechanism to implement Awkward Arrays and their operations in Numba-compiled functions. This is a second implementation of the node data structures and their memory-ownership, but not the kernel functions, which C++ and Numba both call.
 
 \subsection{Kernel functions layer}
 
@@ -174,7 +174,7 @@ Such a function, named \mintinline{python}{fromiter} in the original Awkward Arr
 
 Our record-oriented $\to$ columnar algorithm discovers the data's type during the data transformation pass. For example, if a particular field has always been filled with integers, the first time it is filled with a floating-point value invokes a conversion of the previous integer data into floating-point, then the floating-point array is used henceforth. In the same example, later filling that field with a string invokes a replacement of the floating-point array with a tagged union of floating-point and strings (reusing the floating-point array).
 
-Awkward 1.0 provides three interfaces to this algorithm: (a)~Python objects $\to$ Awkward Arrays, like the old \mintinline{python}{fromiter}, (b)~JSON data $\to$ Awkward Arrays using the RapidJSON C++ library's SAX interface, and (c)~a builder pattern in which the user can fill individual values via method calls. The latter is the most powerful interface, and it is provided in Python, C++, and Numba. In C++, it would allow Awkward interfaces for established C++ projects, and in Numba, it provides a convenient way for physicists to build complex data structures.
+Awkward 1.x provides three interfaces to this algorithm: (a)~Python objects $\to$ Awkward Arrays, like the old \mintinline{python}{fromiter}, (b)~JSON data $\to$ Awkward Arrays using the RapidJSON C++ library's SAX interface, and (c)~a builder pattern in which the user can fill individual values via method calls. The latter is the most powerful interface, and it is provided in Python, C++, and Numba. In C++, it would allow Awkward interfaces for established C++ projects, and in Numba, it provides a convenient way for physicists to build complex data structures.
 
 One particularly important special case of record-oriented $\to$ columnar transformation is unequal-length lists (of any depth of nesting) of numbers. Many analysis-level ROOT files contain data of this type, though ROOT's \mintinline{c++}{TTree} serialization only stores singly jagged arrays in a columnar format: deeper levels are record-oriented. Since the data type is partially known, a specialized implementation improves upon both the old and new \mintinline{python}{fromiter}, as shown in Figure~\ref{fig:read_ttree}. The more long-term solution, however, is ROOT's new \mintinline{c++}{RNTuple} serialization, which is columnar at all levels, making this transformation unnecessary.
 
@@ -182,9 +182,16 @@ One particularly important special case of record-oriented $\to$ columnar transf
 
 \section{Transitioning to the new library}
 
-The reimplementation of Awkward Array in C++ and Numba provides new features, a more unified interface, and higher performance in some cases. These improvements will be introduced to current users of Awkward Array in March 2020, beginning a period in which the old library can be pip-installed/imported as \mintinline{bash}{awkward} and the new one as \mintinline{bash}{awkward1}. Dependent libraries like \mintinline{bash}{uproot} will switch to \mintinline{bash}{awkward1} as a dependency.
+The reimplementation of Awkward Array in C++ and Numba provides new features, a more unified interface, and higher performance in some cases. These improvements are being introduced to users as a new library to ease the transition. The old library can still be pip-installed/imported as \mintinline{bash}{awkward}, whereas the new one is available as \mintinline{bash}{awkward1}. Uproot is transitioning in a similar way, with a new \mintinline{bash}{uproot4} using \mintinline{bash}{awkward1} and the original \mintinline{bash}{uproot} using \mintinline{bash}{awkward}.
 
-Based on user response, the old and new versions of Awkward Array will become \mintinline{bash}{awkward0} and \mintinline{bash}{awkward}, respectively, allowing physics analyses that were written with the old Awkward interface to continue unchanged, apart from importing \mintinline{bash}{awkward0} as \mintinline{bash}{awkward}, while future developments focus on the new library.
+Once adoption of the new libraries increases, they will become defaults by renaming \mintinline{bash}{awkward1}/\mintinline{bash}{uproot4} as \mintinline{bash}{awkward}/\mintinline{bash}{uproot}, with the originals becoming \mintinline{bash}{awkward0} and \mintinline{bash}{uproot3}. Thus, legacy scripts (perhaps necessary for a student's graudation) can be kept functional by adding
+
+\begin{minted}{python}
+import awkward0 as awkward
+import uproot3 as uproot
+\end{minted}
+
+\noindent while new scripts default to the new libraries. We expect this transition to be complete by the end of 2020.
 
 \begin{thebibliography}{}
 %% Journal Author, Journal \textbf{Volume}, page numbers (year)
